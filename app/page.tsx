@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, FormEvent } from 'react'
+import Markdown from 'react-markdown'
 import styles from './page.module.scss'
 
 interface Message {
@@ -102,7 +103,13 @@ export default function Home() {
                 <div className={styles.messageRole}>
                   {message.role === 'user' ? 'You' : 'Assistant'}
                 </div>
-                <div className={styles.messageContent}>{message.content}</div>
+                <div className={styles.messageContent}>
+                  {message.role === 'assistant' ? (
+                    <Markdown>{message.content}</Markdown>
+                  ) : (
+                    message.content
+                  )}
+                </div>
               </div>
             ))}
             {isLoading &&
