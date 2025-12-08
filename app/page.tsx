@@ -78,8 +78,8 @@ export default function Home() {
       <div className={styles.container}>
         <div className={styles.header}>
           <div>
-            <h1>RAG Assistant</h1>
-            <p>Your AI-powered knowledge base assistant</p>
+            <h1>HR Assistant</h1>
+            <p>Ask about policies, benefits, and time off</p>
           </div>
         </div>
 
@@ -87,7 +87,7 @@ export default function Home() {
           <div className={styles.messages}>
             {messages.length === 0 && (
               <div className={styles.emptyState}>
-                <p>Ask me anything about your knowledge base</p>
+                <p>Ask about company policies, benefits, or time off</p>
               </div>
             )}
             {messages.map((message, index) => (
