@@ -79,7 +79,7 @@ export default function Home() {
       <div className={styles.container}>
         <div className={styles.header}>
           <div>
-            <h1>HR Assistant</h1>
+            <h1>AskHR</h1>
             <p>Ask about policies, benefits, and time off</p>
           </div>
         </div>
