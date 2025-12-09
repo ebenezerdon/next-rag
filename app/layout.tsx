@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import './globals.scss'
 
 export const metadata: Metadata = {
-  title: 'RAG Assistant - AI-Powered Knowledge Base',
-  description:
-    'Ask questions about space travel, alien flora, and ship maintenance',
+  title: 'AskHR - AI-Powered HR Assistant',
+  description: 'Ask questions about company policies, benefits, and time off',
 }
 
 const RootLayout = ({
