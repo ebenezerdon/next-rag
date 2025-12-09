@@ -1,11 +1,12 @@
+import dotenv from 'dotenv'
+// Load env vars FIRST before any other code runs
+dotenv.config({ path: '.env.local' })
+
 import { MDocument } from '@mastra/rag'
 import { LibSQLVector } from '@mastra/libsql'
 import OpenAI from 'openai'
 import fs from 'fs'
 import path from 'path'
-import dotenv from 'dotenv'
-
-dotenv.config({ path: '.env.local' })
 
 // Initialize OpenAI client pointing to OpenRouter for embeddings
 const openai = new OpenAI({
@@ -16,8 +17,19 @@ const openai = new OpenAI({
 const contentDir = path.join(process.cwd(), 'content')
 
 // Initialize the vector store
+// Uses Turso (hosted LibSQL) if configured, otherwise file-based SQLite
+const connectionUrl = process.env.TURSO_DATABASE_URL
+  ? process.env.TURSO_DATABASE_URL
+  : `file:${path.join(process.cwd(), 'vectors.db')}`
+
+console.log(
+  'Using database:',
+  connectionUrl.startsWith('libsql://') ? 'Turso (remote)' : 'Local file',
+)
+
 const vectorStore = new LibSQLVector({
-  connectionUrl: `file:${path.join(process.cwd(), 'vectors.db')}`,
+  connectionUrl,
+  authToken: process.env.TURSO_AUTH_TOKEN,
 })
 
 // Generate embeddings using OpenRouter
