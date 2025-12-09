@@ -1,58 +1,99 @@
-import { upsertVectors } from '../lib/vector-store'
+import { MDocument } from '@mastra/rag'
+import { LibSQLVector } from '@mastra/libsql'
+import OpenAI from 'openai'
 import fs from 'fs'
 import path from 'path'
 import dotenv from 'dotenv'
-import OpenAI from 'openai'
 
 dotenv.config({ path: '.env.local' })
 
+// Initialize OpenAI client pointing to OpenRouter for embeddings
 const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
 })
 
 const contentDir = path.join(process.cwd(), 'content')
-const vectorStorePath = path.join(process.cwd(), 'vectors.json')
 
-const getEmbedding = async (text: string): Promise<number[]> => {
-  const response = await openai.embeddings.create({
-    model: 'openai/text-embedding-3-small',
-    input: text,
-  })
-  return response.data[0].embedding
+// Initialize the vector store
+const vectorStore = new LibSQLVector({
+  connectionUrl: `file:${path.join(process.cwd(), 'vectors.db')}`,
+})
+
+// Generate embeddings using OpenRouter
+const getEmbeddings = async (texts: string[]): Promise<number[][]> => {
+  const embeddings: number[][] = []
+
+  // Process in batches to avoid rate limits
+  for (const text of texts) {
+    const response = await openai.embeddings.create({
+      model: 'openai/text-embedding-3-small',
+      input: text,
+    })
+    embeddings.push(response.data[0].embedding)
+  }
+
+  return embeddings
 }
 
 const buildEmbeddings = async () => {
-  console.log('Building embeddings...')
+  console.log('Building embeddings with Mastra...')
 
+  // Read all markdown files
   const files = fs
     .readdirSync(contentDir)
     .filter((file) => file.endsWith('.md'))
 
+  const allChunks: { text: string; source: string }[] = []
+
+  // Process each file using Mastra's MDocument
   for (const file of files) {
     console.log(`Processing ${file}...`)
     const filePath = path.join(contentDir, file)
     const content = fs.readFileSync(filePath, 'utf-8')
 
-    const chunks = content.split('\n\n').filter((c) => c.trim().length > 0)
+    // Create a document from the text
+    const doc = MDocument.fromText(content)
 
-    const vectors: number[][] = []
-    const metadata: Record<string, unknown>[] = []
-    const ids: string[] = []
+    // Chunk the document using Mastra's chunking strategy
+    const chunks = await doc.chunk({
+      strategy: 'recursive',
+      maxSize: 512,
+      overlap: 50,
+    })
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i]
-      const embedding = await getEmbedding(chunk)
-
-      vectors.push(embedding)
-      metadata.push({ source: file, content: chunk })
-      ids.push(`${file}-${i}`)
-    }
-
-    if (vectors.length > 0) {
-      upsertVectors(vectorStorePath, vectors, metadata, ids)
-    }
+    // Add source metadata to each chunk
+    chunks.forEach((chunk) => {
+      allChunks.push({
+        text: chunk.text,
+        source: file,
+      })
+    })
   }
+
+  console.log(`Created ${allChunks.length} chunks from ${files.length} files`)
+
+  // Generate embeddings for all chunks
+  console.log('Generating embeddings...')
+  const embeddings = await getEmbeddings(allChunks.map((chunk) => chunk.text))
+
+  // Create the index if it doesn't exist
+  console.log('Creating vector index...')
+  await vectorStore.createIndex({
+    indexName: 'embeddings',
+    dimension: 1536, // text-embedding-3-small dimension
+  })
+
+  // Store embeddings in the vector database
+  console.log('Storing embeddings...')
+  await vectorStore.upsert({
+    indexName: 'embeddings',
+    vectors: embeddings,
+    metadata: allChunks.map((chunk) => ({
+      text: chunk.text,
+      source: chunk.source,
+    })),
+  })
 
   console.log('Embeddings build complete!')
 }
