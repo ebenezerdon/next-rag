@@ -10,9 +10,15 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-// Initialize vector store with file-based LibSQL
+// Initialize vector store
+// Uses Turso (hosted LibSQL) in production, file-based SQLite locally
+const connectionUrl = process.env.TURSO_DATABASE_URL
+  ? process.env.TURSO_DATABASE_URL
+  : `file:${path.join(process.cwd(), 'vectors.db')}`
+
 const vectorStore = new LibSQLVector({
-  connectionUrl: `file:${path.join(process.cwd(), 'vectors.db')}`,
+  connectionUrl,
+  authToken: process.env.TURSO_AUTH_TOKEN, // Required for Turso, ignored for local file
 })
 
 // Create the vector query tool for RAG using OpenRouter's embedding model
