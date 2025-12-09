@@ -9,7 +9,7 @@ interface Message {
   content: string
 }
 
-export default function Home() {
+const Home = () => {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -157,3 +157,5 @@ export default function Home() {
     </main>
   )
 }
+
+export default Home
