@@ -1,67 +1,71 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
 
 interface VectorEntry {
-  id: string;
-  vector: number[];
-  metadata: any;
+  id: string
+  vector: number[]
+  metadata: Record<string, unknown>
 }
 
-export class SimpleVectorStore {
-  private filePath: string;
-  private data: VectorEntry[] = [];
-
-  constructor(filePath: string) {
-    this.filePath = filePath;
-    this.load();
+export const loadVectors = (filePath: string): VectorEntry[] => {
+  if (fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    return JSON.parse(content)
   }
+  return []
+}
 
-  private load() {
-    if (fs.existsSync(this.filePath)) {
-      const content = fs.readFileSync(this.filePath, 'utf-8');
-      this.data = JSON.parse(content);
+export const saveVectors = (filePath: string, data: VectorEntry[]): void => {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
+}
+
+export const upsertVectors = (
+  filePath: string,
+  vectors: number[][],
+  metadata: Record<string, unknown>[],
+  ids: string[],
+): void => {
+  const data = loadVectors(filePath)
+
+  for (let i = 0; i < vectors.length; i++) {
+    const existingIndex = data.findIndex((item) => item.id === ids[i])
+    const entry = { id: ids[i], vector: vectors[i], metadata: metadata[i] }
+
+    if (existingIndex >= 0) {
+      data[existingIndex] = entry
+    } else {
+      data.push(entry)
     }
   }
 
-  private save() {
-    fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2));
+  saveVectors(filePath, data)
+}
+
+const cosineSimilarity = (a: number[], b: number[]): number => {
+  let dotProduct = 0
+  let normA = 0
+  let normB = 0
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
   }
 
-  async upsert(vectors: number[][], metadata: any[], ids: string[]) {
-    for (let i = 0; i < vectors.length; i++) {
-      const id = ids[i];
-      const vector = vectors[i];
-      const meta = metadata[i];
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+}
 
-      const existingIndex = this.data.findIndex(item => item.id === id);
-      if (existingIndex >= 0) {
-        this.data[existingIndex] = { id, vector, metadata: meta };
-      } else {
-        this.data.push({ id, vector, metadata: meta });
-      }
-    }
-    this.save();
-  }
+export const queryVectors = (
+  filePath: string,
+  queryVector: number[],
+  topK: number = 5,
+) => {
+  const data = loadVectors(filePath)
 
-  async query(queryVector: number[], topK: number = 5) {
-    const scored = this.data.map(item => ({
-      ...item,
-      score: this.cosineSimilarity(queryVector, item.vector),
-    }));
+  const scored = data.map((item) => ({
+    ...item,
+    score: cosineSimilarity(queryVector, item.vector),
+  }))
 
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, topK);
-  }
-
-  private cosineSimilarity(a: number[], b: number[]) {
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, topK)
 }

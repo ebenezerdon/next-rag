@@ -1,4 +1,4 @@
-import { SimpleVectorStore } from '../lib/vector-store'
+import { upsertVectors } from '../lib/vector-store'
 import fs from 'fs'
 import path from 'path'
 import dotenv from 'dotenv'
@@ -12,11 +12,9 @@ const openai = new OpenAI({
 })
 
 const contentDir = path.join(process.cwd(), 'content')
-const vectorStore = new SimpleVectorStore(
-  path.join(process.cwd(), 'mastra-vectors.json'),
-)
+const vectorStorePath = path.join(process.cwd(), 'mastra-vectors.json')
 
-async function getEmbeddings(text: string) {
+const getEmbedding = async (text: string): Promise<number[]> => {
   const response = await openai.embeddings.create({
     model: 'openai/text-embedding-3-small',
     input: text,
@@ -24,7 +22,7 @@ async function getEmbeddings(text: string) {
   return response.data[0].embedding
 }
 
-async function buildEmbeddings() {
+const buildEmbeddings = async () => {
   console.log('Building embeddings...')
 
   const files = fs
@@ -36,27 +34,23 @@ async function buildEmbeddings() {
     const filePath = path.join(contentDir, file)
     const content = fs.readFileSync(filePath, 'utf-8')
 
-    // Simple chunking by double newline (paragraphs)
     const chunks = content.split('\n\n').filter((c) => c.trim().length > 0)
 
     const vectors: number[][] = []
-    const metadata: any[] = []
+    const metadata: Record<string, unknown>[] = []
     const ids: string[] = []
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]
-      const embedding = await getEmbeddings(chunk)
+      const embedding = await getEmbedding(chunk)
 
       vectors.push(embedding)
-      metadata.push({
-        source: file,
-        content: chunk,
-      })
+      metadata.push({ source: file, content: chunk })
       ids.push(`${file}-${i}`)
     }
 
     if (vectors.length > 0) {
-      await vectorStore.upsert(vectors, metadata, ids)
+      upsertVectors(vectorStorePath, vectors, metadata, ids)
     }
   }
 
