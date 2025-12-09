@@ -12,7 +12,7 @@ const openai = new OpenAI({
 })
 
 const contentDir = path.join(process.cwd(), 'content')
-const vectorStorePath = path.join(process.cwd(), 'mastra-vectors.json')
+const vectorStorePath = path.join(process.cwd(), 'vectors.json')
 
 const getEmbedding = async (text: string): Promise<number[]> => {
   const response = await openai.embeddings.create({

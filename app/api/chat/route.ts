@@ -13,7 +13,7 @@ const openai = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
 })
 
-const vectorStorePath = path.join(process.cwd(), 'mastra-vectors.json')
+const vectorStorePath = path.join(process.cwd(), 'vectors.json')
 
 const getEmbedding = async (text: string): Promise<number[]> => {
   const response = await openai.embeddings.create({
